@@ -137,6 +137,8 @@ def predict():
         algo=None
         # a = get_prediction(s, policy, layout_name, algo)
         action = POLICY.action(s)
+        print("Choosing action!!!!")
+        print(action)
 
 
         return jsonify({'action': Action.ACTION_TO_INDEX[action]})

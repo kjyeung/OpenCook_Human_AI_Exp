@@ -39,7 +39,9 @@ class GPTAgent(object):
     def load_openai_keys(self):
         with open(openai_key_file, "r") as f:
             context = f.read()
-        self.openai_api_keys = context.split('\n')
+        print("Loading OpenAI API keys.")
+        self.openai_api_keys = context.split('\n')[0:1]
+        print("Keys:", self.openai_api_keys)
 
     def openai_api_key(self):
         if self.key_rotation:

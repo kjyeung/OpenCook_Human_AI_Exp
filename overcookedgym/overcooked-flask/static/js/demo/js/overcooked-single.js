@@ -107,21 +107,24 @@ export default class OvercookedSinglePlayerTask {
         // this.lstm_state = [null, null];
         this.done = 1;
 
-        this.gameloop = setInterval(() => {
+        this.do_step = async () => {
             for (const npc_index of this.npc_policies) {
                 // let [npc_a, lstm_state] = this.npc_policies[npc_index](this.state, this.done, this.lstm_state[npc_index], this.game);
-                
-                var xhr = new XMLHttpRequest();
-                xhr.open("POST", "/predict", false); // false for synchronous
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.send(JSON.stringify({
-                    state: this.state,
-                    npc_index: npc_index,
-                    layout_name: this.layout_name,
-                    algo: this.algo,
-                    timestep: this.cur_gameloop,
-                }));
-                var action_idx = JSON.parse(xhr.responseText)["action"];
+
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        state: this.state,
+                        npc_index: npc_index,
+                        layout_name: this.layout_name,
+                        algo: this.algo,
+                        timestep: this.cur_gameloop,
+                    }),
+                });
+                var action_idx = (await response.json())["action"];
                 let npc_a = Action.INDEX_TO_ACTION[action_idx];
                 console.log(npc_a);
 
@@ -136,8 +139,8 @@ export default class OvercookedSinglePlayerTask {
                     joint_action: this.joint_action
                 });
 
-            // Apparently doing a Parse(Stringify(Obj)) is actually the most succinct way. 
-            // to do a deep copy in JS 
+            // Apparently doing a Parse(Stringify(Obj)) is actually the most succinct way.
+            // to do a deep copy in JS
             // let cleanedState = JSON.parse(JSON.stringify(this.state));
             // cleanedState['objects'] = Object.values(cleanedState['objects']);
             this.trajectory.ep_states[0].push(JSON.stringify(this.state))
@@ -147,7 +150,8 @@ export default class OvercookedSinglePlayerTask {
             this.game.drawState(next_state);
             this.score += reward;
             this.game.drawScore(this.score);
-            let time_elapsed = (new Date().getTime() - this.start_time) / 1000;
+            // let time_elapsed = (new Date().getTime() - this.start_time) / 1000;
+            let time_elapsed = Math.round((this.cur_gameloop + 1) * this.TIMESTEP / 1000);
             this.time_left = Math.round(this.MAX_TIME - time_elapsed);
             this.game.drawTimeLeft(this.time_left);
             this.done = 0
@@ -178,6 +182,20 @@ export default class OvercookedSinglePlayerTask {
             if (this.time_left < 0) {
                 this.time_left = 0;
                 this.close();
+            }
+        }
+
+        this.step_running = false;
+        this.step_finish = true;
+        this.gameloop = setInterval(() => {
+            if (this.step_running) return;
+            if (this.step_finish) {
+                this.step_running = true;
+                this.step_finish = false;
+                this.do_step().then(()=>{
+                    this.step_finish = true
+                })
+
             }
         }, this.TIMESTEP);
         this.activate_response_listener();
